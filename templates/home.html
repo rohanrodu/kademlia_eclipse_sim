@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Eclipse Attack Simulator — Home{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="hero-text">
+    <span class="eyebrow">P2P NETWORK SECURITY · INTERACTIVE DEMO</span>
+    <h1>Watch a peer-to-peer node get <span class="hl-danger">eclipsed</span> —
+      then watch a smarter defense <span class="hl-success">stop it</span>.</h1>
+    <p>
+      This tool simulates a Kademlia-style DHT node choosing which peers to
+      connect to, while an attacker tries to surround it with fake nodes.
+      Compare naive random selection against a custom defense —
+      <b>Trust-weighted Adaptive Bucket &amp; Subnet Diversity (TABSD)</b> —
+      round by round, visually.
+    </p>
+    <div class="hero-actions">
+      <a href="{{ url_for('simulate_page') }}" class="btn btn-primary">▶ Run a Simulation</a>
+      <a href="{{ url_for('how_it_works') }}" class="btn btn-ghost">Learn How It Works</a>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <svg viewBox="0 0 320 320" class="hero-svg">
+      <circle cx="160" cy="160" r="150" class="ring ring-outer"/>
+      <circle cx="160" cy="160" r="105" class="ring"/>
+      <circle cx="160" cy="160" r="60" class="ring"/>
+      <circle cx="160" cy="160" r="14" class="victim-node"/>
+      <!-- honest peers -->
+      <circle cx="80" cy="90" r="7" class="peer-dot honest"/>
+      <circle cx="240" cy="70" r="7" class="peer-dot honest"/>
+      <circle cx="270" cy="200" r="7" class="peer-dot honest"/>
+      <circle cx="60" cy="230" r="7" class="peer-dot honest"/>
+      <circle cx="180" cy="270" r="7" class="peer-dot honest"/>
+      <!-- malicious peers clustered close -->
+      <circle cx="185" cy="140" r="7" class="peer-dot malicious"/>
+      <circle cx="140" cy="185" r="7" class="peer-dot malicious"/>
+      <circle cx="175" cy="180" r="7" class="peer-dot malicious"/>
+      <circle cx="130" cy="140" r="7" class="peer-dot malicious"/>
+      <!-- connecting lines from victim to malicious (illustrating the threat) -->
+      <line x1="160" y1="160" x2="185" y2="140" class="conn-line danger"/>
+      <line x1="160" y1="160" x2="140" y2="185" class="conn-line danger"/>
+      <line x1="160" y1="160" x2="175" y2="180" class="conn-line danger"/>
+      <line x1="160" y1="160" x2="130" y2="140" class="conn-line danger"/>
+    </svg>
+    <p class="hero-caption">Victim node surrounded by attacker peers (red) clustered at close XOR distance.</p>
+  </div>
+</section>
+
+<section class="feature-grid">
+  <div class="feature-card">
+    <div class="feature-icon icon-bucket">◎</div>
+    <h3>XOR Bucket Diversity</h3>
+    <p>Guarantees at least one connection per Kademlia bucket, so attacker
+       IDs clustered near the victim can't dominate every slot.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon icon-subnet">▦</div>
+    <h3>Subnet Capping</h3>
+    <p>Limits how many connections can come from the same simulated subnet —
+       attackers rarely control as many real machines as fake IDs.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon icon-trust">⏱</div>
+    <h3>Trust-Weighted Gating</h3>
+    <p>New peers are capped to a small share of connection slots each round,
+       forcing attackers to sustain presence — and risk detection — over time.</p>
+  </div>
+</section>
+
+<section class="cta-strip">
+  <div>
+    <h2>See it in action</h2>
+    <p>Configure the network size and watch both strategies play out, round by round, on a live graph.</p>
+  </div>
+  <a href="{{ url_for('simulate_page') }}" class="btn btn-primary">Go to Simulation →</a>
+</section>
+
+{% endblock %}

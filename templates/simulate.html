@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Simulation — Eclipse Attack Simulator{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<section class="page-header">
+  <h1>Simulation</h1>
+  <p>Configure the network, then step through rounds to watch both strategies decide who connects to the victim.</p>
+</section>
+
+<div class="sim-layout">
+
+  <!-- ============ CONFIG PANEL ============ -->
+  <aside class="panel config-panel">
+    <h2>Setup</h2>
+
+    <div class="field">
+      <label for="num_honest">Honest peers</label>
+      <input type="number" id="num_honest" min="1" max="200" value="{{ defaults.num_honest }}">
+    </div>
+
+    <div class="field">
+      <label for="num_attackers">Attacker peers injected / round</label>
+      <input type="number" id="num_attackers" min="0" max="100" value="{{ defaults.num_attackers }}">
+    </div>
+
+    <div class="field">
+      <label for="rounds">Rounds to simulate</label>
+      <input type="number" id="rounds" min="1" max="15" value="{{ defaults.rounds }}">
+    </div>
+
+    <div class="field">
+      <label for="subnet_span">Subnets controlled by attacker</label>
+      <input type="number" id="subnet_span" min="1" max="{{ params.num_subnets }}" value="{{ defaults.attacker_subnet_span }}">
+    </div>
+
+    <div class="field">
+      <label for="seed">Random seed (optional)</label>
+      <input type="number" id="seed" placeholder="leave blank for random">
+    </div>
+
+    <button id="runBtn" class="btn btn-primary run-btn">▶ Run Simulation</button>
+
+    <div class="static-params">
+      <h3>Fixed defense parameters</h3>
+      <ul>
+        <li>ID space: <b>{{ params.id_bits }}-bit</b></li>
+        <li>Max connections: <b>{{ params.max_connections }}</b></li>
+        <li>Max peers / subnet: <b>{{ params.max_per_subnet }}</b></li>
+        <li>New-peer slot cap: <b>{{ (params.new_peer_cap_ratio * 100) | round(0) }}%</b></li>
+        <li>Rounds to become "trusted": <b>{{ params.trust_mature_rounds }}</b></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ============ RESULTS ============ -->
+  <section class="results-area">
+
+    <div id="emptyState" class="empty-state panel">
+      <p>Configure the network on the left and press <b>Run Simulation</b>.</p>
+    </div>
+
+    <div id="resultsWrap" class="hidden">
+
+      <!-- graph panel -->
+      <div class="panel graph-panel">
+        <div class="graph-header">
+          <div class="strategy-toggle">
+            <button class="toggle-btn active" data-strategy="vulnerable">Random Selection</button>
+            <button class="toggle-btn" data-strategy="secure">TABSD Defense</button>
+          </div>
+          <div class="round-status">
+            <span id="statusPill" class="status-pill safe">SAFE</span>
+            <span id="statusDetail" class="status-detail">– / – malicious</span>
+          </div>
+        </div>
+
+        <div class="graph-body">
+          <canvas id="graphCanvas" width="640" height="480"></canvas>
+          <div class="legend">
+            <div><span class="dot honest"></span> Honest peer</div>
+            <div><span class="dot malicious"></span> Malicious peer</div>
+            <div><span class="dot victim-dot"></span> Victim node</div>
+            <div><span class="line-sample safe"></span> Safe connection</div>
+            <div><span class="line-sample danger"></span> Malicious connection</div>
+          </div>
+        </div>
+
+        <div class="round-controls">
+          <button id="prevBtn" class="btn btn-ghost small">⏮ Prev</button>
+          <button id="playBtn" class="btn btn-ghost small">▶ Play</button>
+          <button id="nextBtn" class="btn btn-ghost small">Next ⏭</button>
+          <input type="range" id="roundSlider" min="1" max="1" value="1">
+          <span id="roundLabel">Round 1 / 1</span>
+        </div>
+      </div>
+
+      <!-- summary cards -->
+      <div class="summary-cards">
+        <div class="card vuln">
+          <h3>Random Selection</h3>
+          <p class="big" id="vulnEclipsedCount">–</p>
+          <p class="label">rounds eclipsed</p>
+        </div>
+        <div class="card secure">
+          <h3>TABSD Defense</h3>
+          <p class="big" id="secureEclipsedCount">–</p>
+          <p class="label">rounds eclipsed</p>
+        </div>
+        <div class="card victim">
+          <h3>Victim Node ID</h3>
+          <p class="big" id="victimId">–</p>
+          <p class="label">{{ params.id_bits }}-bit Kademlia ID space</p>
+        </div>
+      </div>
+
+      <!-- trend chart -->
+      <div class="panel chart-box">
+        <h3>Malicious connections per round</h3>
+        <canvas id="trendChart"></canvas>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='simulate.js') }}"></script>
+{% endblock %}

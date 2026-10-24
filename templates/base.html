@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Eclipse Attack Simulator{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="{{ url_for('home') }}" class="nav-brand">
+    <span class="dot"></span>
+    <span>Eclipse<b>Sim</b></span>
+  </a>
+  <div class="nav-links">
+    <a href="{{ url_for('home') }}" class="{{ 'active' if active_page == 'home' else '' }}">Home</a>
+    <a href="{{ url_for('how_it_works') }}" class="{{ 'active' if active_page == 'how' else '' }}">How It Works</a>
+    <a href="{{ url_for('example_page') }}" class="{{ 'active' if active_page == 'example' else '' }}">Example</a>
+    <a href="{{ url_for('simulate_page') }}" class="{{ 'active' if active_page == 'sim' else '' }}">Simulation</a>
+  </div>
+</nav>
+
+<div class="page">
+{% block content %}{% endblock %}
+</div>
+
+<footer>
+  <p>Simulation only — no real network traffic is generated. Built for learning Kademlia-style eclipse-attack defenses.</p>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

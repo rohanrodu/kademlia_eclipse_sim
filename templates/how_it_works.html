@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}How It Works — Eclipse Attack Simulator{% endblock %}
+
+{% block content %}
+
+<section class="page-header">
+  <h1>How It Works</h1>
+  <p>Four concepts, in order: node distance, the attack, the defense, and how to read the simulation.</p>
+</section>
+
+<!-- 1. XOR distance & buckets -->
+<section class="explainer">
+  <div class="explainer-text">
+    <span class="step-badge">1</span>
+    <h2>Every node has an ID, and a "distance"</h2>
+    <p>
+      Each peer gets a random {{ params.id_bits }}-bit ID. Distance between
+      two nodes isn't physical — it's the <b>XOR</b> of their IDs. Peers get
+      grouped into <b>buckets</b> by how close they are:
+      <code>bucket = floor(log2(id_a XOR id_b))</code>.
+      Small XOR → low bucket number → "close". Large XOR → high bucket → "far".
+    </p>
+    <p>A healthy routing table keeps connections spread across many buckets,
+       not just the closest one.</p>
+  </div>
+  <div class="explainer-visual">
+    <svg viewBox="0 0 320 240" class="diagram">
+      <line x1="20" y1="200" x2="300" y2="200" class="axis"/>
+      <text x="20" y="220" class="axis-label">bucket 0 (near)</text>
+      <text x="230" y="220" class="axis-label">bucket 7 (far)</text>
+      <!-- bucket ticks -->
+      <g class="tick-group">
+        <circle cx="45" cy="200" r="4" class="tick"/>
+        <circle cx="80" cy="200" r="4" class="tick"/>
+        <circle cx="115" cy="200" r="4" class="tick"/>
+        <circle cx="150" cy="200" r="4" class="tick"/>
+        <circle cx="185" cy="200" r="4" class="tick"/>
+        <circle cx="220" cy="200" r="4" class="tick"/>
+        <circle cx="255" cy="200" r="4" class="tick"/>
+        <circle cx="290" cy="200" r="4" class="tick"/>
+      </g>
+      <!-- peers scattered above buckets -->
+      <circle cx="45" cy="150" r="7" class="peer-dot honest"/>
+      <circle cx="50" cy="120" r="7" class="peer-dot malicious"/>
+      <circle cx="80" cy="140" r="7" class="peer-dot malicious"/>
+      <circle cx="115" cy="160" r="7" class="peer-dot honest"/>
+      <circle cx="150" cy="130" r="7" class="peer-dot honest"/>
+      <circle cx="185" cy="150" r="7" class="peer-dot honest"/>
+      <circle cx="220" cy="140" r="7" class="peer-dot honest"/>
+      <circle cx="255" cy="155" r="7" class="peer-dot honest"/>
+      <circle cx="290" cy="145" r="7" class="peer-dot honest"/>
+      <text x="20" y="40" class="diagram-caption">Attacker IDs cluster in the low buckets (close to the victim)</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 2. Eclipse attack -->
+<section class="explainer reverse">
+  <div class="explainer-text">
+    <span class="step-badge danger">2</span>
+    <h2>The eclipse attack</h2>
+    <p>
+      The attacker mints many node IDs close to the victim's ID (cheap — IDs
+      are just numbers) and floods the network with them. If peer selection
+      is <b>naive random sampling</b>, the victim's connection slots end up
+      reflecting whatever share of the visible network is attacker-controlled.
+    </p>
+    <p>
+      Once a majority of a victim's active connections are attacker peers, the
+      attacker fully controls what the victim sees: it can hide transactions,
+      feed stale or false data, or isolate the victim from the honest network
+      entirely.
+    </p>
+  </div>
+  <div class="explainer-visual">
+    <svg viewBox="0 0 320 240" class="diagram">
+      <circle cx="160" cy="120" r="90" class="ring"/>
+      <circle cx="160" cy="120" r="12" class="victim-node"/>
+      <circle cx="120" cy="90" r="7" class="peer-dot malicious"/>
+      <circle cx="190" cy="80" r="7" class="peer-dot malicious"/>
+      <circle cx="200" cy="130" r="7" class="peer-dot malicious"/>
+      <circle cx="185" cy="165" r="7" class="peer-dot malicious"/>
+      <circle cx="130" cy="160" r="7" class="peer-dot malicious"/>
+      <circle cx="105" cy="120" r="7" class="peer-dot malicious"/>
+      <circle cx="260" cy="60" r="7" class="peer-dot honest"/>
+      <line x1="160" y1="120" x2="120" y2="90" class="conn-line danger"/>
+      <line x1="160" y1="120" x2="190" y2="80" class="conn-line danger"/>
+      <line x1="160" y1="120" x2="200" y2="130" class="conn-line danger"/>
+      <line x1="160" y1="120" x2="185" y2="165" class="conn-line danger"/>
+      <line x1="160" y1="120" x2="130" y2="160" class="conn-line danger"/>
+      <line x1="160" y1="120" x2="105" y2="120" class="conn-line danger"/>
+      <text x="30" y="220" class="diagram-caption">6 of 7 visible connections are attacker-controlled — the victim is eclipsed</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 3. TABSD defense -->
+<section class="explainer">
+  <div class="explainer-text">
+    <span class="step-badge success">3</span>
+    <h2>The defense: TABSD</h2>
+    <p><b>Trust-weighted Adaptive Bucket &amp; Subnet Diversity</b> combines three
+       independent layers so an attacker has to beat all three at once:</p>
+    <ul class="layer-list">
+      <li>
+        <b>Bucket diversity</b> — at least one connection is guaranteed per
+        occupied XOR bucket, so attacker IDs clustered near the victim can
+        only ever dominate the low buckets, never the whole table.
+      </li>
+      <li>
+        <b>Subnet capping</b> — no more than {{ params.max_per_subnet }}
+        connections may come from the same simulated subnet, regardless of ID.
+        This targets the real-world limit on how many actual machines an
+        attacker controls.
+      </li>
+      <li>
+        <b>Trust-weighted gating</b> — brand-new peers are capped to about
+        {{ (params.new_peer_cap_ratio * 100) | round(0) }}% of connection
+        slots per round, and selection favors peers with a longer track
+        record. A flood of new peers can't win in a single round.
+      </li>
+    </ul>
+  </div>
+  <div class="explainer-visual">
+    <svg viewBox="0 0 320 260" class="diagram">
+      <circle cx="160" cy="130" r="95" class="ring"/>
+      <circle cx="160" cy="130" r="12" class="victim-node"/>
+      <!-- selected: mix, capped -->
+      <circle cx="120" cy="100" r="7" class="peer-dot malicious"/>
+      <circle cx="220" cy="70" r="7" class="peer-dot honest"/>
+      <circle cx="240" cy="150" r="7" class="peer-dot honest"/>
+      <circle cx="90" cy="180" r="7" class="peer-dot honest"/>
+      <circle cx="180" cy="200" r="7" class="peer-dot honest"/>
+      <circle cx="80" cy="110" r="7" class="peer-dot malicious"/>
+      <circle cx="230" cy="200" r="7" class="peer-dot honest"/>
+      <line x1="160" y1="130" x2="120" y2="100" class="conn-line danger"/>
+      <line x1="160" y1="130" x2="220" y2="70" class="conn-line safe"/>
+      <line x1="160" y1="130" x2="240" y2="150" class="conn-line safe"/>
+      <line x1="160" y1="130" x2="90" y2="180" class="conn-line safe"/>
+      <line x1="160" y1="130" x2="180" y2="200" class="conn-line safe"/>
+      <line x1="160" y1="130" x2="80" y2="110" class="conn-line danger"/>
+      <line x1="160" y1="130" x2="230" y2="200" class="conn-line safe"/>
+      <text x="20" y="240" class="diagram-caption">Only 2 of 7 connections are attacker-controlled — safely under the eclipse threshold</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 4. Reading the simulation -->
+<section class="explainer reverse">
+  <div class="explainer-text">
+    <span class="step-badge">4</span>
+    <h2>Reading the live simulation</h2>
+    <p>On the Simulation page, every dot is a peer positioned by its
+       distance from the victim (center) — closer dots are in lower buckets.
+       Blue = honest, red = malicious.</p>
+    <p>Step through rounds to see which peers get connected under each
+       strategy. A round is marked <b>ECLIPSED</b> when more than half of the
+       victim's connections are malicious.</p>
+    <a href="{{ url_for('simulate_page') }}" class="btn btn-primary">Try it now →</a>
+  </div>
+  <div class="explainer-visual">
+    <svg viewBox="0 0 320 200" class="diagram">
+      <rect x="20" y="20" width="120" height="160" rx="10" class="mini-panel"/>
+      <text x="80" y="42" text-anchor="middle" class="diagram-caption small">Random</text>
+      <circle cx="80" cy="100" r="10" class="victim-node"/>
+      <circle cx="55" cy="70" r="6" class="peer-dot malicious"/>
+      <circle cx="105" cy="65" r="6" class="peer-dot malicious"/>
+      <circle cx="45" cy="130" r="6" class="peer-dot malicious"/>
+      <circle cx="110" cy="140" r="6" class="peer-dot honest"/>
+      <line x1="80" y1="100" x2="55" y2="70" class="conn-line danger"/>
+      <line x1="80" y1="100" x2="105" y2="65" class="conn-line danger"/>
+      <line x1="80" y1="100" x2="45" y2="130" class="conn-line danger"/>
+      <line x1="80" y1="100" x2="110" y2="140" class="conn-line safe"/>
+
+      <rect x="180" y="20" width="120" height="160" rx="10" class="mini-panel"/>
+      <text x="240" y="42" text-anchor="middle" class="diagram-caption small">TABSD</text>
+      <circle cx="240" cy="100" r="10" class="victim-node"/>
+      <circle cx="215" cy="70" r="6" class="peer-dot malicious"/>
+      <circle cx="265" cy="65" r="6" class="peer-dot honest"/>
+      <circle cx="205" cy="130" r="6" class="peer-dot honest"/>
+      <circle cx="270" cy="140" r="6" class="peer-dot honest"/>
+      <line x1="240" y1="100" x2="215" y2="70" class="conn-line danger"/>
+      <line x1="240" y1="100" x2="265" y2="65" class="conn-line safe"/>
+      <line x1="240" y1="100" x2="205" y2="130" class="conn-line safe"/>
+      <line x1="240" y1="100" x2="270" y2="140" class="conn-line safe"/>
+    </svg>
+  </div>
+</section>
+
+<section class="cta-strip">
+  <div>
+    <h2>Ready to try it yourself?</h2>
+    <p>Pick network size and attacker strength, then step through the rounds.</p>
+  </div>
+  <a href="{{ url_for('simulate_page') }}" class="btn btn-primary">Go to Simulation →</a>
+</section>
+
+{% endblock %}

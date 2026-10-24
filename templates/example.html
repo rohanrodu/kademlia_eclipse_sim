@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Example — Eclipse Attack Simulator{% endblock %}
+
+{% block content %}
+
+<section class="page-header">
+  <h1>Worked Example</h1>
+  <p>One real, reproducible run of the algorithm — the exact input, the intermediate math, and the exact output. Not illustrative numbers: this is what the code actually produces.</p>
+</section>
+
+<!-- STEP 0: input -->
+<section class="demo-block">
+  <span class="step-badge">Input</span>
+  <h2>What goes in</h2>
+  <p>A victim node ID and a small network are generated from a fixed random seed, so the result below is 100% reproducible.</p>
+  <pre class="code-block"><code>{
+  "victim_id": 164,
+  "num_honest": 12,
+  "num_attackers": 8,
+  "attacker_subnet_span": 2,
+  "seed": 7
+}</code></pre>
+  <p class="note">victim_id = 164 → binary <code>10100100</code>. The attacker mints 8 fake IDs close to this
+     value (classic eclipse strategy); the 12 honest peers get random IDs anywhere in the 8-bit space.</p>
+</section>
+
+<!-- STEP 1: distance + bucket table -->
+<section class="demo-block">
+  <span class="step-badge">Step 1</span>
+  <h2>Every peer gets a distance &amp; bucket</h2>
+  <p><code>bucket = floor(log2(victim_id XOR peer_id))</code> — smaller bucket number means closer to the victim.
+     Notice how every single malicious peer lands in buckets 1–3, while honest peers are scattered from bucket 1 all the way to bucket 7.</p>
+
+  <div class="table-scroll">
+  <table class="demo-table">
+    <thead>
+      <tr><th>Bucket</th><th>Peer ID</th><th>Subnet</th><th>Type</th><th>Picked — Random</th><th>Picked — TABSD</th></tr>
+    </thead>
+    <tbody>
+      <tr class="row-m"><td>1</td><td>167</td><td>12</td><td><span class="tag-m">malicious</span></td><td class="pick yes">✓</td><td class="pick no">—</td></tr>
+      <tr class="row-m"><td>1</td><td>166</td><td>12</td><td><span class="tag-m">malicious</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>2</td><td>162</td><td>1</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick yes">✓</td></tr>
+      <tr class="row-m"><td>2</td><td>160</td><td>12</td><td><span class="tag-m">malicious</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-m"><td>2</td><td>161</td><td>0</td><td><span class="tag-m">malicious</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-m"><td>2</td><td>162</td><td>12</td><td><span class="tag-m">malicious</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-m"><td>3</td><td>173</td><td>12</td><td><span class="tag-m">malicious</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-m"><td>3</td><td>174</td><td>0</td><td><span class="tag-m">malicious</span></td><td class="pick yes">✓</td><td class="pick yes">✓</td></tr>
+      <tr class="row-m"><td>3</td><td>173</td><td>12</td><td><span class="tag-m">malicious</span></td><td class="pick yes">✓</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>6</td><td>233</td><td>6</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick yes">✓</td></tr>
+      <tr class="row-h"><td>6</td><td>243</td><td>7</td><td><span class="tag-h">honest</span></td><td class="pick yes">✓</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>7</td><td>83</td><td>4</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>7</td><td>102</td><td>1</td><td><span class="tag-h">honest</span></td><td class="pick yes">✓</td><td class="pick yes">✓</td></tr>
+      <tr class="row-h"><td>7</td><td>19</td><td>3</td><td><span class="tag-h">honest</span></td><td class="pick yes">✓</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>7</td><td>94</td><td>1</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick yes">✓</td></tr>
+      <tr class="row-h"><td>7</td><td>10</td><td>2</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick yes">✓</td></tr>
+      <tr class="row-h"><td>7</td><td>112</td><td>13</td><td><span class="tag-h">honest</span></td><td class="pick yes">✓</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>7</td><td>18</td><td>7</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick no">—</td></tr>
+      <tr class="row-h"><td>7</td><td>24</td><td>13</td><td><span class="tag-h">honest</span></td><td class="pick yes">✓</td><td class="pick yes">✓</td></tr>
+      <tr class="row-h"><td>7</td><td>16</td><td>3</td><td><span class="tag-h">honest</span></td><td class="pick no">—</td><td class="pick yes">✓</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3 class="sub-heading">The same data, drawn as a graph</h3>
+  <p>Same 20 peers, positioned by bucket (closer to center = smaller bucket = closer to the victim).
+     Solid outlined dots with a line to the center are the ones actually connected this round.</p>
+
+  <div class="diagram-pair">
+    <div class="diagram-card">
+      <h4>Random Selection <span class="pick-count danger">3/8 malicious</span></h4>
+      <svg viewBox="0 0 300 300" class="diagram">
+        <circle cx="150" cy="150" r="24" class="ring"/>
+        <circle cx="150" cy="150" r="38" class="ring"/>
+        <circle cx="150" cy="150" r="52" class="ring"/>
+        <circle cx="150" cy="150" r="66" class="ring"/>
+        <circle cx="150" cy="150" r="80" class="ring"/>
+        <circle cx="150" cy="150" r="94" class="ring"/>
+        <circle cx="150" cy="150" r="108" class="ring"/>
+        <circle cx="150" cy="150" r="122" class="ring ring-outer"/>
+
+        <line x1="150" y1="150" x2="112.4" y2="144.7" class="conn-line danger"/>
+        <line x1="150" y1="150" x2="206.6" y2="116.0" class="conn-line danger"/>
+        <line x1="150" y1="150" x2="84.4" y2="156.9" class="conn-line danger"/>
+        <line x1="150" y1="150" x2="43.6" y2="168.8" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="268.9" y2="177.4" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="104.3" y2="36.9" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="193.7" y2="263.9" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="37.7" y2="102.3" class="conn-line safe"/>
+
+        <circle cx="112.4" cy="144.7" r="6" class="peer-dot malicious" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="159.8" cy="186.7" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="99.3" cy="138.3" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="141.0" cy="98.8" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="195.0" cy="176.0" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="118.0" cy="191.0" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="120.0" cy="91.2" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="206.6" cy="116.0" r="6" class="peer-dot malicious" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="84.4" cy="156.9" r="6" class="peer-dot malicious" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="207.2" cy="58.4" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="43.6" cy="168.8" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="271.3" cy="137.2" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="268.9" cy="177.4" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="104.3" cy="36.9" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="258.7" cy="205.4" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="137.2" cy="28.7" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="193.7" cy="263.9" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="36.9" cy="195.7" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="37.7" cy="102.3" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="96.5" cy="40.3" r="3.6" class="peer-dot honest" opacity="0.55"/>
+
+        <circle cx="150" cy="150" r="9" class="victim-node"/>
+      </svg>
+    </div>
+
+    <div class="diagram-card">
+      <h4>TABSD Defense <span class="pick-count success">1/8 malicious</span></h4>
+      <svg viewBox="0 0 300 300" class="diagram">
+        <circle cx="150" cy="150" r="24" class="ring"/>
+        <circle cx="150" cy="150" r="38" class="ring"/>
+        <circle cx="150" cy="150" r="52" class="ring"/>
+        <circle cx="150" cy="150" r="66" class="ring"/>
+        <circle cx="150" cy="150" r="80" class="ring"/>
+        <circle cx="150" cy="150" r="94" class="ring"/>
+        <circle cx="150" cy="150" r="108" class="ring"/>
+        <circle cx="150" cy="150" r="122" class="ring ring-outer"/>
+
+        <line x1="150" y1="150" x2="99.3" y2="138.3" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="206.6" y2="116.0" class="conn-line danger"/>
+        <line x1="150" y1="150" x2="207.2" y2="58.4" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="268.9" y2="177.4" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="258.7" y2="205.4" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="137.2" y2="28.7" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="37.7" y2="102.3" class="conn-line safe"/>
+        <line x1="150" y1="150" x2="96.5" y2="40.3" class="conn-line safe"/>
+
+        <circle cx="112.4" cy="144.7" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="159.8" cy="186.7" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="99.3" cy="138.3" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="141.0" cy="98.8" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="195.0" cy="176.0" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="118.0" cy="191.0" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="120.0" cy="91.2" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="206.6" cy="116.0" r="6" class="peer-dot malicious" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="84.4" cy="156.9" r="3.6" class="peer-dot malicious" opacity="0.55"/>
+        <circle cx="207.2" cy="58.4" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="43.6" cy="168.8" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="271.3" cy="137.2" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="268.9" cy="177.4" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="104.3" cy="36.9" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="258.7" cy="205.4" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="137.2" cy="28.7" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="193.7" cy="263.9" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="36.9" cy="195.7" r="3.6" class="peer-dot honest" opacity="0.55"/>
+        <circle cx="37.7" cy="102.3" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+        <circle cx="96.5" cy="40.3" r="6" class="peer-dot honest" stroke="#ffffff" stroke-width="1"/>
+
+        <circle cx="150" cy="150" r="9" class="victim-node"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="legend inline-legend">
+    <div><span class="dot honest"></span> Honest peer</div>
+    <div><span class="dot malicious"></span> Malicious peer</div>
+    <div><span class="dot victim-dot"></span> Victim node</div>
+    <div><span class="line-sample safe"></span> Safe connection</div>
+    <div><span class="line-sample danger"></span> Malicious connection</div>
+    <div>Faded dot = not connected this round</div>
+  </div>
+</section>
+
+<!-- STEP 2: outcome comparison -->
+<section class="demo-block">
+  <span class="step-badge">Step 2</span>
+  <h2>Same network, two different outcomes</h2>
+  <div class="outcome-cards">
+    <div class="outcome-card danger">
+      <h3>Random Selection</h3>
+      <p class="big">3 / 8</p>
+      <p class="label">malicious connections</p>
+      <p class="explain">Uniform sampling has no idea some of these IDs are suspiciously close
+         to the victim — it picked 3 of the 5 malicious peers in bucket 1–3, plus 5 honest peers scattered
+         wherever the sample happened to land.</p>
+    </div>
+    <div class="outcome-card success">
+      <h3>TABSD Defense</h3>
+      <p class="big">1 / 8</p>
+      <p class="label">malicious connection</p>
+      <p class="explain">Bucket diversity forced at least one pick from far buckets (6, 7) where no
+         attacker exists. Subnet capping blocked extra picks from subnet 12, which 5 of the
+         8 malicious peers shared. Only 1 malicious peer got through.</p>
+    </div>
+  </div>
+  <p class="note">Neither run was "eclipsed" here (that needs &gt;50%), but notice the gap: TABSD
+     cut the attacker's success rate from 37.5% to 12.5% on the exact same network.</p>
+</section>
+
+<!-- STEP 3: raw API output -->
+<section class="demo-block">
+  <span class="step-badge">Output</span>
+  <h2>What the API actually returns</h2>
+  <p><code>POST /api/simulate</code> with the input above returns this shape (network list
+     trimmed here for readability — in the real response every peer appears):</p>
+  <pre class="code-block"><code>{
+  "victim_id": 164,
+  "config": {
+    "num_honest": 12, "num_attackers": 8, "rounds": 1,
+    "max_connections": 8, "max_per_subnet": 2,
+    "new_peer_cap_ratio": 0.3, "trust_mature_rounds": 3, "id_bits": 8
+  },
+  "history": [
+    {
+      "round": 1,
+      "network": [
+        { "key": 1, "id": 83, "subnet": 4, "malicious": false, "trust": 0, "bucket": 7 },
+        { "key": 2, "id": 102, "subnet": 1, "malicious": false, "trust": 1, "bucket": 7 },
+        { "...": "18 more peers omitted" }
+      ],
+      "vulnerable": {
+        "selected_keys": [18, 3, 2, 7, 16, 11, 9, 17],
+        "total": 8, "malicious": 3, "eclipsed": false
+      },
+      "secure": {
+        "selected_keys": [4, 5, 6, 17, 2, 9, 12, 10],
+        "total": 8, "malicious": 1, "eclipsed": false
+      }
+    }
+  ]
+}</code></pre>
+
+  <div class="field-explain">
+    <h3>Field guide</h3>
+    <ul>
+      <li><code>network</code> — every peer known this round: <code>key</code> (unique internal id, since
+          real node IDs can collide by design), <code>id</code> (the Kademlia node ID), <code>subnet</code>,
+          <code>malicious</code>, <code>trust</code> (rounds of good behavior accumulated), and
+          <code>bucket</code> (distance from the victim).</li>
+      <li><code>vulnerable</code> / <code>secure</code> — each strategy's result: which peer <code>key</code>s
+          got connected, how many were <code>malicious</code>, and whether that round counts as
+          <code>eclipsed</code> (malicious &gt; half of total connections).</li>
+    </ul>
+  </div>
+</section>
+
+<section class="cta-strip">
+  <div>
+    <h2>Now try your own numbers</h2>
+    <p>Pick a network size and attacker strength and watch this same process play out live.</p>
+  </div>
+  <a href="{{ url_for('simulate_page') }}" class="btn btn-primary">Go to Simulation →</a>
+</section>
+
+{% endblock %}
